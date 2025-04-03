@@ -1,0 +1,29 @@
+header{
+    padding: 60px;
+    text-align: center;
+    background-image: url("../img/piano2.jpg");
+    background-repeat: no-repeat;
+    background-size: cover;
+    flex-direction: row;
+}
+
+header h1{
+    font-size: 35px;
+    margin: 0 0 20px;
+    flex-direction: row;
+    flex-direction: row;
+    text-align: center;
+}
+
+header p{
+    margin: 0 0 10px;
+}
+
+header div{
+    background-color: rgba(179, 172, 172, 0.4);
+    padding: 10px;
+    border-radius: 10px;
+    color: rgb(51, 48, 48);
+    font-size: 20px;
+
+}

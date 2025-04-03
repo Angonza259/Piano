@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Piano Virtual con Seguimiento de Mano</title>
+    <style>
+        body {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            background-color: black;
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+        }
+        #piano-container {
+            position: relative;
+            width: 100%;
+            max-width: 800px;
+            margin-top: 20px;
+        }
+        #piano-keyboard {
+            width: 100%;
+            height: auto;
+        }
+        .key {
+            position: absolute;
+            background-color: rgba(255, 255, 255, 0.3);
+            border: 1px solid #000;
+            cursor: pointer;
+        }
+        .white-key {
+            width: 40px;
+            height: 150px;
+            background-color: white;
+        }
+        .black-key {
+            width: 25px;
+            height: 90px;
+            background-color: black;
+        }
+        .pointer {
+            position: absolute;
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            background-color: rgba(255, 0, 0, 0.8);
+            pointer-events: none;
+            transform: translate(-50%, -50%);
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <h1 style="color:white;">Piano Virtual con Seguimiento de Mano</h1>
+    <div id="piano-container">
+        <img id="piano-keyboard" src="piano-keyboard.png" alt="Teclado de Piano">
+        <!-- Teclas blancas -->
+        <div class="key white-key" style="left: 10%; top: 0;" data-note="C4"></div>
+        <div class="key white-key" style="left: 20%; top: 0;" data-note="D4"></div>
+        <div class="key white-key" style="left: 30%; top: 0;" data-note="E4"></div>
+        <div class="key white-key" style="left: 40%; top: 0;" data-note="F4"></div>
+        <div class="key white-key" style="left: 50%; top: 0;" data-note="G4"></div>
+        <div class="key white-key" style="left: 60%; top: 0;" data-note="A4"></div>
+        <div class="key white-key" style="left: 70%; top: 0;" data-note="B4"></div>
+        <!-- Teclas negras -->
+        <div class="key black-key" style="left: 15%; top: 0;" data-note="C#4"></div>
+        <div class="key black-key" style="left: 25%; top: 0;" data-note="D#4"></div>
+        <div class="key black-key" style="left: 45%; top: 0;" data-note="F#4"></div>
+        <div class="key black-key" style="left: 55%; top: 0;" data-note="G#4"></div>
+        <div class="key black-key" style="left: 65%; top: 0;" data-note="A#4"></div>
+    </div>
+    <div id="pointer" class="pointer"></div>
+
+    
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/control_utils/control_utils.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js"></script>
+
+    <script>
+        const video = document.createElement('video'); 
+        const pianoContainer = document.getElementById('piano-container');
+        const pointer = document.getElementById('pointer');
+        const keys = document.querySelectorAll('.key');
+
+    
+        const sounds = {};
+        keys.forEach(key => {
+            const note = key.getAttribute('data-note');
+            sounds[note] = new Audio(`sounds/${note}.mp3`);
+        });
+
+        // suavizar el movimiento del puntero
+        let smoothX = 0;
+        let smoothY = 0;
+        const smoothingFactor = 0.5;
+
+        // MediaPipe Hands
+        const hands = new Hands({
+            locateFile: (file) => {
+                return `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`;
+            }
+        });
+
+        hands.setOptions({
+            maxNumHands: 1,
+            modelComplexity: 1,
+            minDetectionConfidence: 0.5,
+            minTrackingConfidence: 0.5
+        });
+
+        //  pulgar e índice
+        function detectPinch(handLandmarks) {
+            const thumbTip = handLandmarks[4]; //  pulgar
+            const indexTip = handLandmarks[8]; //  índice
+
+            const distance = Math.sqrt(
+                Math.pow(thumbTip.x - indexTip.x, 2) + Math.pow(thumbTip.y - indexTip.y, 2)
+            );
+
+            const pinchThreshold = 0.05;
+            return distance < pinchThreshold;
+        }
+
+        
+        function onResults(results) {
+            if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
+                const handLandmarks = results.multiHandLandmarks[0];
+
+                // posición de la palma (landmark 9)
+                const palm = handLandmarks[9];
+                const x = palm.x * window.innerWidth;
+                const y = palm.y * window.innerHeight;
+
+                // puntero
+                smoothX = smoothX + (x - smoothX) * smoothingFactor;
+                smoothY = smoothY + (y - smoothY) * smoothingFactor;
+
+                
+                pointer.style.left = `${smoothX}px`;
+                pointer.style.top = `${smoothY}px`;
+                pointer.style.display = 'block';
+
+                // Click para tocar una tecla
+                if (detectPinch(handLandmarks)) {
+                    const key = document.elementFromPoint(smoothX, smoothY);
+                    if (key && key.classList.contains('key')) {
+                        const note = key.getAttribute('data-note');
+                        if (sounds[note]) {
+                            sounds[note].currentTime = 0; // Reiniciar el sonido 
+                            sounds[note].play();
+                            key.style.backgroundColor = 'yellow'; // tecla tocada
+                            setTimeout(() => {
+                                key.style.backgroundColor = key.classList.contains('white-key') ? 'white' : 'black';
+                            }, 200); 
+                        }
+                    }
+                }
+            } else {
+                pointer.style.display = 'none';
+            }
+        }
+
+        // Inicializar cmara
+        async function setupCamera() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                video.srcObject = stream;
+                video.play();
+                return new Promise((resolve) => {
+                    video.onloadedmetadata = () => {
+                        resolve(video);
+                    };
+                });
+            } catch (error) {
+                console.error("Error al acceder a la cámara:", error);
+                alert("No se pudo acceder a la cámara. Asegúrate de permitir el acceso.");
+            }
+        }
+
+        // Inicio programa
+        async function main() {
+            await setupCamera();
+            hands.onResults(onResults);
+            const camera = new Camera(video, {
+                onFrame: async () => {
+                    await hands.send({ image: video });
+                },
+                width: 640,
+                height: 480
+            });
+            camera.start();
+        }
+
+        main();
+    </script>
+</body>
+</html>
